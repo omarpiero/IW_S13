@@ -17,11 +17,8 @@ import {
  * Proporciona una interfaz con pestañas para ejecutar las tres operaciones
  * bancarias principales (Depósito, Retiro y Transferencia).
  *
- * @param {Object} props
- * @param {Object} props.cuentaOrigen - Cuenta activa desde la que se opera
- * @param {Array} props.cuentasDisponibles - Todas las cuentas (para el selector de destino)
- * @param {Function} props.onOperacionExitosa - Callback para refrescar datos y notificar éxito
- * @param {Function} props.onError - Callback para notificar error
+ * Incluye modo selector y modo manual para permitir probar tanto
+ * el flujo ideal como los errores de API (404 cuenta inexistente, 400 misma cuenta).
  */
 export default function FormOperacion({
   cuentaOrigen,
@@ -33,6 +30,7 @@ export default function FormOperacion({
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [cuentaDestinoId, setCuentaDestinoId] = useState('');
+  const [modoDestinoManual, setModoDestinoManual] = useState(false);
   const [procesando, setProcesando] = useState(false);
 
   const cuentasDestinoPosibles = cuentasDisponibles.filter(
@@ -54,7 +52,10 @@ export default function FormOperacion({
       return;
     }
 
-    if ((tabActiva === 'retiro' || tabActiva === 'transferencia') && montoNum > cuentaOrigen.saldo) {
+    if (
+      (tabActiva === 'retiro' || tabActiva === 'transferencia') &&
+      montoNum > cuentaOrigen.saldo
+    ) {
       onError(
         `Saldo insuficiente. Intentas operar por $${montoNum.toFixed(
           2
@@ -64,12 +65,8 @@ export default function FormOperacion({
     }
 
     if (tabActiva === 'transferencia') {
-      if (!cuentaDestinoId) {
-        onError('Por favor selecciona una cuenta de destino para transferir');
-        return;
-      }
-      if (cuentaDestinoId === cuentaOrigen._id) {
-        onError('No puedes transferir fondos a tu misma cuenta');
+      if (!cuentaDestinoId || !cuentaDestinoId.trim()) {
+        onError('Por favor ingresa o selecciona una cuenta de destino');
         return;
       }
     }
@@ -94,7 +91,7 @@ export default function FormOperacion({
       } else if (tabActiva === 'transferencia') {
         resultado = await realizarTransferencia({
           cuentaOrigenId: cuentaOrigen._id,
-          cuentaDestinoId,
+          cuentaDestinoId: cuentaDestinoId.trim(),
           monto: montoNum,
           descripcion,
         });
@@ -103,6 +100,7 @@ export default function FormOperacion({
       limpiarFormulario();
       onOperacionExitosa(resultado.mensaje || 'Operación completada con éxito');
     } catch (err) {
+      // Captura y muestra el mensaje de error devuelto por el Backend (400, 404 o 500)
       onError(err.message || 'Error al procesar la operación bancaria');
     } finally {
       setProcesando(false);
@@ -169,30 +167,64 @@ export default function FormOperacion({
 
       {/* Formulario */}
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Campo de Cuenta Destino en Transferencias */}
         {tabActiva === 'transferencia' && (
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Cuenta Destino *
-            </label>
-            <select
-              value={cuentaDestinoId}
-              onChange={(e) => setCuentaDestinoId(e.target.value)}
-              className="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-              required
-            >
-              <option value="">-- Selecciona una cuenta destino --</option>
-              {cuentasDestinoPosibles.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.titular} &bull; {c.numeroCuenta} ({c.tipoCuenta})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">
+                Cuenta Destino *
+              </label>
+              {/* Botón para alternar entre lista desplegable y escritura manual */}
+              <button
+                type="button"
+                onClick={() => {
+                  setModoDestinoManual(!modoDestinoManual);
+                  setCuentaDestinoId('');
+                }}
+                className="text-xs text-purple-700 hover:text-purple-900 font-medium underline"
+              >
+                {modoDestinoManual
+                  ? '← Elegir de la lista'
+                  : 'Ingresar N° manual (para pruebas)'}
+              </button>
+            </div>
+
+            {modoDestinoManual ? (
+              <input
+                type="text"
+                placeholder="Ej: CTA-9999 (inexistente) o CTA-1001 (misma cuenta)"
+                value={cuentaDestinoId}
+                onChange={(e) => setCuentaDestinoId(e.target.value)}
+                className="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                required
+              />
+            ) : (
+              <select
+                value={cuentaDestinoId}
+                onChange={(e) => setCuentaDestinoId(e.target.value)}
+                className="w-full text-sm rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                required
+              >
+                <option value="">-- Selecciona una cuenta destino --</option>
+                {cuentasDestinoPosibles.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.titular} &bull; {c.numeroCuenta} ({c.tipoCuenta})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
 
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Monto a {tabActiva === 'deposito' ? 'depositar' : tabActiva === 'retiro' ? 'retirar' : 'transferir'} ($ USD) *
+            Monto a{' '}
+            {tabActiva === 'deposito'
+              ? 'depositar'
+              : tabActiva === 'retiro'
+              ? 'retirar'
+              : 'transferir'}{' '}
+            ($ USD) *
           </label>
           <div className="relative rounded-lg shadow-sm">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-sm">
@@ -258,8 +290,18 @@ export default function FormOperacion({
                   ? 'Confirmar Retiro'
                   : 'Confirmar Transferencia'}
               </span>
-              <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              <svg
+                className="w-4 h-4 ml-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14 5l7 7m0 0l-7 7m7-7H3"
+                />
               </svg>
             </>
           )}
