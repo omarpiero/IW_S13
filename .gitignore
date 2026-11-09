@@ -1,0 +1,41 @@
+# Archivos de guía y consignas internas
+consigna_Cuenta_Bancaria (1).html
+GUIA_GIT.md
+GUIA_MONGODB.md
+HISTORIAS_DE_USUARIO.md
+
+# Dependencias de Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Variables de entorno y credenciales sensibles
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Compilados de producción
+dist/
+build/
+
+# Archivos del sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+.env.local
+.env.*.local
+!.env.example
+
+# Compilados de producción
+dist/
+build/
+
+# Archivos del sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
