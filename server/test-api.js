@@ -2,11 +2,13 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const express = require('express');
 const cors = require('cors');
+const morgan = require('morgan');
 const cuentaRoutes = require('./routes/cuentaRoutes');
 
 // Iniciar mini-servidor para pruebas
 const app = express();
 app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
 app.use('/api', cuentaRoutes);
 

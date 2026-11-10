@@ -40,10 +40,18 @@ app.use((req, res) => {
   });
 });
 
-// Middleware centralizado para captura de errores imprevistos (500)
+// Middleware centralizado de errores
 app.use((err, req, res, next) => {
+  // JSON mal formado: express.json() marca el error con status 400 (culpa del cliente)
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      mensaje: 'El cuerpo de la petición no es un JSON válido',
+    });
+  }
+
+  // Cualquier otro error imprevisto es culpa del servidor (500)
   console.error('Error no controlado en el servidor:', err);
-  res.status(500).json({
+  res.status(err.status || 500).json({
     mensaje: 'Ocurrió un error inesperado en el servidor',
     error: err.message,
   });
